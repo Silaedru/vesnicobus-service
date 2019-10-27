@@ -29,10 +29,9 @@ func getItem(key string) string {
 }
 
 func createRedisConnection(server string, password string, db int) {
-
 	pool = &redis.Pool{
-		MaxIdle: 100,
-		MaxActive: 10000,
+		MaxIdle:   100,
+		MaxActive: 500,
 		Dial: func() (redis.Conn, error) {
 			conn, err := redis.Dial("tcp", server, redis.DialDatabase(db), redis.DialPassword(password))
 			processFatalError(err)

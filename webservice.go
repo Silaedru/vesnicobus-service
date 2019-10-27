@@ -2,12 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"strconv"
+	"time"
 )
 
 func setResponseHeaders(next http.Handler) http.Handler {
@@ -20,34 +19,24 @@ func setResponseHeaders(next http.Handler) http.Handler {
 // /buses/{bus_id}/estimate/{stop_id}
 func handleEstimate(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	busId := params["bus_id"]
-	stopId := params["stop_id"]
+	busID := params["bus_id"]
+	stopID := params["stop_id"]
 
-	buses := getCurrentBusInfo()
-	var targetBus *BusInfo
+	estimate, err := estimateTimeToStop(busID, stopID)
 
-	for _, bus := range buses {
-		if bus.Id == busId {
-			targetBus = &bus
-			break
+	if err != nil {
+		switch err.(type) {
+		case *BusNotFoundError:
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			w.WriteHeader(http.StatusBadRequest)
 		}
 	}
 
-	if targetBus == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
+	estimateString, err := json.Marshal(estimate)
+	processFatalError(err)
 
-	lat, _ := strconv.ParseFloat(targetBus.Latitude, 32)
-	lon, _ := strconv.ParseFloat(targetBus.Longitude, 32)
-
-	estimate, err := estimateTimeToStop(position{float32(lat), float32(lon)}, targetBus.NextStopId, &targetBus.Stops, stopId)
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-
-	_, err = w.Write([]byte(fmt.Sprintf("{\"estimate\":%.2f}", estimate)))
+	_, err = w.Write(estimateString)
 	processFatalError(err)
 }
 
@@ -55,7 +44,9 @@ func handleEstimate(w http.ResponseWriter, r *http.Request) {
 func handleBuses(w http.ResponseWriter, r *http.Request) {
 	bi := getCurrentBusInfo()
 
-	resp, err := json.Marshal(bi)
+	bir := BusInfoResponse{bi, time.Now().Unix()}
+
+	resp, err := json.Marshal(bir)
 	processFatalError(err)
 
 	_, err = w.Write(resp)

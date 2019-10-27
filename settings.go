@@ -6,14 +6,14 @@ import (
 
 type Settings struct {
 	Webservice struct {
-		Bind string
+		Bind            string
 		RefreshInterval int
 	}
 
 	Redis struct {
-		Server string
+		Server   string
 		Password string
-		DB int
+		DB       int
 	}
 
 	Golemio struct {

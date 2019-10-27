@@ -5,50 +5,62 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
+	"sync"
 )
 
-type BusPosition struct {
-	Properties struct {
-		Trip struct {
-			TripId string `json:"gtfs_trip_id"`
-			Line   string `json:"cis_short_name"`
-		} `json:"trip"`
+type (
+	BusPosition struct {
+		Properties struct {
+			Trip struct {
+				TripID string `json:"gtfs_trip_id"`
+				Line   string `json:"cis_short_name"`
+			} `json:"trip"`
 
-		LastPosition struct {
-			NextStopId string `json:"gtfs_next_stop_id"`
-			Latitude string `json:"lat"`
-			Longitude string `json:"lng"`
-			Delay int `json:"delay"`
-		} `json:"last_position"`
-	} `json:"properties"`
-}
+			LastPosition struct {
+				NextStopID string `json:"gtfs_next_stop_id"`
+				Latitude   string `json:"lat"`
+				Longitude  string `json:"lng"`
+				Delay      int    `json:"delay"`
+			} `json:"last_position"`
+		} `json:"properties"`
+	}
 
-type PositionResponse struct {
-	Buses []BusPosition `json:"features"`
-}
+	PositionResponse struct {
+		Buses []BusPosition `json:"features"`
+	}
 
-type BusInfo struct {
-	Id string `json:"id"`
-	Line string `json:"line"`
-	NextStopName string `json:"next_stop_name"`
-	NextStopId string `json:"next_stop_id"`
-	LastStopName string `json:"last_stop_name"`
-	Latitude string `json:"latitude"`
-	Longitude string `json:"longitude"`
-	Stops []GolemioStopProperties `json:"stops"`
-	Delay float32 `json:"delay"`
-}
+	BusInfo struct {
+		ID           string                  `json:"id"`
+		Line         string                  `json:"line"`
+		NextStopName string                  `json:"next_stop_name"`
+		NextStopID   string                  `json:"next_stop_id"`
+		LastStopName string                  `json:"last_stop_name"`
+		Latitude     string                  `json:"latitude"`
+		Longitude    string                  `json:"longitude"`
+		Stops        []GolemioStopProperties `json:"stops"`
+		Delay        float32                 `json:"delay"`
+	}
+
+	BusInfoResponse struct {
+		BusInfo   []BusInfo `json:"bus_info"`
+		Timestamp int64     `json:"timestamp"`
+	}
+)
 
 const (
 	golemioCurrentPositionEndpoint = "https://api.golemio.cz/v1/vehiclepositions?"
-	busesPerPage = 1000
-	lastPositionKey = "lastposition"
+	busesPerPage                   = 1000
+	lastPositionKey                = "lastposition"
+)
+
+var (
+	refreshPositionLock = &sync.Mutex{}
 )
 
 func fetchBusesLastPosition() []BusPosition {
 	var buses []BusPosition
 
-	for i:=0;;i++ {
+	for i := 0; ; i++ {
 		r, c := golemioHttpCall(golemioCurrentPositionEndpoint, busesPerPage, i*busesPerPage)
 		if c < 400 {
 			data, err := ioutil.ReadAll(r.Body)
@@ -73,17 +85,21 @@ func refreshBusesLastPosition() []BusPosition {
 	buses := fetchBusesLastPosition()
 	tripData, err := json.Marshal(buses)
 	processFatalError(err)
+
 	storeItem(lastPositionKey, string(tripData))
 	return buses
 }
 
 func getBusesLastPosition() []BusPosition {
+	refreshPositionLock.Lock()
 	lastPositionData := getItem(lastPositionKey)
 	var buses []BusPosition
 
 	if lastPositionData == "" {
 		buses = refreshBusesLastPosition()
+		refreshPositionLock.Unlock()
 	} else {
+		refreshPositionLock.Unlock()
 		err := json.Unmarshal([]byte(lastPositionData), &buses)
 		processFatalError(err)
 	}
@@ -96,7 +112,7 @@ func getCurrentBusInfo() []BusInfo {
 	info := make([]BusInfo, 0, len(buses))
 
 	for _, bus := range buses {
-		trip := getTrip(bus.Properties.Trip.TripId)
+		trip := getTrip(bus.Properties.Trip.TripID)
 
 		if trip == nil {
 			continue
@@ -105,7 +121,7 @@ func getCurrentBusInfo() []BusInfo {
 		nextStop := ""
 
 		for _, stop := range trip.Stops {
-			if stop.Properties.Id == bus.Properties.LastPosition.NextStopId {
+			if stop.Properties.ID == bus.Properties.LastPosition.NextStopID {
 				nextStop = stop.Properties.Name
 				break
 			}
@@ -117,7 +133,7 @@ func getCurrentBusInfo() []BusInfo {
 			stops[j] = stop.Properties
 		}
 
-		busId := fmt.Sprintf("%x", crc32.ChecksumIEEE([]byte(trip.TripId)))
+		busId := fmt.Sprintf("%x", crc32.ChecksumIEEE([]byte(trip.TripID)))
 		lastStop := ""
 
 		if len(trip.Stops) > 1 {
@@ -127,7 +143,7 @@ func getCurrentBusInfo() []BusInfo {
 		info = append(info, BusInfo{busId,
 			bus.Properties.Trip.Line,
 			nextStop,
-			bus.Properties.LastPosition.NextStopId,
+			bus.Properties.LastPosition.NextStopID,
 			lastStop,
 			bus.Properties.LastPosition.Latitude,
 			bus.Properties.LastPosition.Longitude,
@@ -136,5 +152,5 @@ func getCurrentBusInfo() []BusInfo {
 		})
 	}
 
-	return info[0:len(info)]
+	return info
 }

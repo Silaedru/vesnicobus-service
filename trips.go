@@ -29,7 +29,8 @@ const (
 )
 
 var (
-	tripLocks = make(map[string]*sync.Mutex)
+	tripLocks        = make(map[string]*sync.Mutex)
+	tripLockMapMutex = &sync.Mutex{}
 )
 
 func tripKey(id string) string {
@@ -54,11 +55,14 @@ func loadTrip(id string) *GolemioTrip {
 }
 
 func getTrip(id string) *GolemioTrip {
+	tripLockMapMutex.Lock()
 	if tripLocks[id] == nil {
 		tripLocks[id] = new(sync.Mutex)
 	}
-	
-	tripLocks[id].Lock()
+	tripLock := tripLocks[id]
+	tripLockMapMutex.Unlock()
+
+	tripLock.Lock()
 	tripData := getItem(tripKey(id))
 	var trip *GolemioTrip
 
@@ -70,9 +74,9 @@ func getTrip(id string) *GolemioTrip {
 			processFatalError(err)
 			storeItem(tripKey(id), string(tripData))
 		}
-		tripLocks[id].Unlock()
+		tripLock.Unlock()
 	} else {
-		tripLocks[id].Unlock()
+		tripLock.Unlock()
 		err := json.Unmarshal([]byte(tripData), &trip)
 		processFatalError(err)
 	}

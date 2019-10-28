@@ -11,9 +11,11 @@ type Settings struct {
 	}
 
 	Redis struct {
-		Server   string
-		Password string
-		DB       int
+		Server    string
+		Password  string
+		DB        int
+		MaxIdle   int
+		MaxActive int
 	}
 
 	Golemio struct {

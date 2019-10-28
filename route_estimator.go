@@ -40,11 +40,11 @@ func (e *BusNotFoundError) Error() string {
 	return "target bus not found"
 }
 
-func (e* StopNotInPathError) Error() string {
+func (e *StopNotInPathError) Error() string {
 	return "stop not in bus path"
 }
 
-func (e* UnspecifiedEstimateError) Error() string {
+func (e *UnspecifiedEstimateError) Error() string {
 	return "unspecified estimate error"
 }
 

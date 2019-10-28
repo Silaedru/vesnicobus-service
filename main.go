@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"sync"
 	"time"
 )
 
@@ -14,14 +15,12 @@ func processFatalError(err error) {
 }
 
 func main() {
-	defer log.Println("Vesnicobus service has been stopped.")
-
 	log.Println("===== VESNICOBUS =====")
 	log.Println("Vesnicobus service is starting ...")
 	s := loadSettings("vesnicobus.ini")
 	golemioApiKey = s.Golemio.ApiKey
 
-	createRedisConnection(s.Redis.Server, s.Redis.Password, s.Redis.DB)
+	createRedisConnection(s.Redis.Server, s.Redis.Password, s.Redis.DB, s.Redis.MaxIdle, s.Redis.MaxActive)
 	setMicrosoftApiKey(s.Microsoft.ApiKey)
 
 	if s.Webservice.RefreshInterval > 0 {
@@ -33,6 +32,15 @@ func main() {
 			}
 		}()
 	}
+
+	go func() {
+		for {
+			time.Sleep(24 * time.Hour)
+			tripLockMapMutex.Lock()
+			tripLocks = make(map[string]*sync.Mutex)
+			tripLockMapMutex.Unlock()
+		}
+	}()
 
 	setupWebService(s.Webservice.Bind)
 }

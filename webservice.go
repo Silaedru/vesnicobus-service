@@ -16,7 +16,7 @@ func setResponseHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// /buses/{bus_id}/estimate/{stop_id}
+// GET /buses/{bus_id}/estimate/{stop_id}
 func handleEstimate(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	busID := params["bus_id"]
@@ -36,8 +36,7 @@ func handleEstimate(w http.ResponseWriter, r *http.Request) {
 	estimateString, err := json.Marshal(estimate)
 	processFatalError(err)
 
-	_, err = w.Write(estimateString)
-	processFatalError(err)
+	w.Write(estimateString)
 }
 
 // GET /buses
@@ -49,8 +48,7 @@ func handleBuses(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(bir)
 	processFatalError(err)
 
-	_, err = w.Write(resp)
-	processFatalError(err)
+	w.Write(resp)
 }
 
 func setupWebService(bindAddr string) {

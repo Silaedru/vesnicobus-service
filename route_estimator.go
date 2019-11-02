@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strconv"
+	"sync"
 )
 
 type (
@@ -50,6 +51,22 @@ func (e *UnspecifiedEstimateError) Error() string {
 
 func positionToWpString(p *position, i int) string {
 	return fmt.Sprintf("&wp.%d=%.6f,%.6f", i, p.latitude, p.longitude)
+}
+
+func executeEstimate(routeString string) float32 {
+	resp, _ := httpCall("GET", routingEndpoint+routeString, nil)
+	data, err := ioutil.ReadAll(resp.Body)
+	processFatalError(err)
+
+	var result RouteAPIResponse
+	err = json.Unmarshal(data, &result)
+	processFatalError(err)
+
+	if len(result.ResourceSets) > 0 && len(result.ResourceSets[0].Resources) > 0 {
+		return float32(result.ResourceSets[0].Resources[0].Duration) / 60
+	}
+
+	return 0
 }
 
 func estimateTimeToStop(busID string, targetStopID string) (Estimate, error) {
@@ -117,20 +134,23 @@ func estimateTimeToStop(busID string, targetStopID string) (Estimate, error) {
 	}
 
 	estimate := float32(0)
+	estimateMutex := &sync.Mutex{}
+	var wg sync.WaitGroup
+	wg.Add(len(routeStrings))
 
 	for _, str := range routeStrings {
-		resp, _ := httpCall("GET", routingEndpoint+str, nil)
-		data, err := ioutil.ReadAll(resp.Body)
-		processFatalError(err)
-
-		var result RouteAPIResponse
-		err = json.Unmarshal(data, &result)
-		processFatalError(err)
-
-		if len(result.ResourceSets) > 0 && len(result.ResourceSets[0].Resources) > 0 {
-			estimate += float32(result.ResourceSets[0].Resources[0].Duration) / 60
-		}
+		go func(routeString string) {
+			e := executeEstimate(routeString)
+			if e > 0 {
+				estimateMutex.Lock()
+				estimate += e
+				estimateMutex.Unlock()
+			}
+			wg.Done()
+		}(str)
 	}
+
+	wg.Wait()
 
 	rtn.Estimate = estimate
 

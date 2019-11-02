@@ -83,10 +83,19 @@ func fetchBusesLastPosition() []BusPosition {
 
 func refreshBusesLastPosition() []BusPosition {
 	buses := fetchBusesLastPosition()
+
+	go func() {
+		for _, bus := range buses {
+			go func(tripID string) {
+				getTrip(tripID)
+			}(bus.Properties.Trip.TripID)
+		}
+	}()
+
 	tripData, err := json.Marshal(buses)
 	processFatalError(err)
-
 	storeItem(lastPositionKey, string(tripData))
+
 	return buses
 }
 
@@ -109,10 +118,39 @@ func getBusesLastPosition() []BusPosition {
 
 func getCurrentBusInfo() []BusInfo {
 	buses := getBusesLastPosition()
-	info := make([]BusInfo, 0, len(buses))
+	numBuses := len(buses)
+	info := make([]BusInfo, 0, numBuses)
 
-	for _, bus := range buses {
-		trip := getTrip(bus.Properties.Trip.TripID)
+	type tripResult struct {
+		i int
+		trip *GolemioTrip
+	}
+
+	tripChan := make(chan tripResult, numBuses)
+	var wg sync.WaitGroup
+	wg.Add(numBuses)
+
+	for i, bus := range buses {
+		go func(i int, tripID string) {
+			trip := getTrip(tripID)
+			tripChan <- tripResult{i, trip}
+			wg.Done()
+		}(i, bus.Properties.Trip.TripID)
+	}
+
+	go func() {
+		wg.Wait()
+		close(tripChan)
+	}()
+
+	trips := make([]*GolemioTrip, numBuses)
+
+	for trip := range tripChan {
+		trips[trip.i] = trip.trip
+	}
+
+	for i, bus := range buses {
+		trip := trips[i]
 
 		if trip == nil {
 			continue

@@ -122,7 +122,7 @@ func getCurrentBusInfo() []BusInfo {
 	info := make([]BusInfo, 0, numBuses)
 
 	type tripResult struct {
-		i int
+		i    int
 		trip *GolemioTrip
 	}
 

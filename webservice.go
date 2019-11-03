@@ -64,6 +64,6 @@ func setupWebService(bindAddr string) {
 	allowedMethods := handlers.AllowedMethods([]string{"GET", "OPTIONS"})
 
 	log.Println("starting webservice ...")
-	err := http.ListenAndServe(bindAddr, handlers.CORS(allowedOrigins, allowedHeaders, allowedMethods)(router))
+	err := http.ListenAndServe(bindAddr, handlers.CORS(allowedOrigins, allowedHeaders, allowedMethods)(handlers.CompressHandler(router)))
 	processFatalError(err)
 }

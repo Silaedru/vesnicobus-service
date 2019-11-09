@@ -1,4 +1,4 @@
-module vesnicobus-service
+module github.com/Silaedru/vesnicobus-service
 
 go 1.13
 

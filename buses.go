@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
+	"log"
 	"sync"
 )
 
@@ -57,12 +58,13 @@ var (
 	refreshPositionLock = &sync.Mutex{}
 )
 
-func fetchBusesLastPosition() []BusPosition {
+func fetchBusesLastPosition() ([]BusPosition, error) {
 	var buses []BusPosition
 
 	for i := 0; ; i++ {
-		r, c := golemioHttpCall(golemioCurrentPositionEndpoint, busesPerPage, i*busesPerPage)
-		if c < 400 {
+		r, c, err := golemioHttpCall(golemioCurrentPositionEndpoint, busesPerPage, i*busesPerPage)
+
+		if c < 400 && err == nil {
 			data, err := ioutil.ReadAll(r.Body)
 			processFatalError(err)
 
@@ -75,19 +77,25 @@ func fetchBusesLastPosition() []BusPosition {
 			if len(pr.Buses) < busesPerPage {
 				break
 			}
+		} else {
+			return []BusPosition{}, err
 		}
 	}
 
-	return buses
+	return buses, nil
 }
 
 func refreshBusesLastPosition() []BusPosition {
-	buses := fetchBusesLastPosition()
+	buses, err := fetchBusesLastPosition()
+
+	if err != nil {
+		log.Println("WARNING! Error when fetching last buses position:", err)
+	}
 
 	go func() {
 		for _, bus := range buses {
 			go func(tripID string) {
-				getTrip(tripID)
+				_, _ = getTrip(tripID)
 			}(bus.Properties.Trip.TripID)
 		}
 	}()
@@ -132,8 +140,12 @@ func getCurrentBusInfo() []BusInfo {
 
 	for i, bus := range buses {
 		go func(i int, tripID string) {
-			trip := getTrip(tripID)
-			tripChan <- tripResult{i, trip}
+			trip, err := getTrip(tripID)
+			if err == nil {
+				tripChan <- tripResult{i, trip}
+			} else {
+				log.Printf("WARNING! Error when getting trip \"%s\": %v\n", tripID, err)
+			}
 			wg.Done()
 		}(i, bus.Properties.Trip.TripID)
 	}

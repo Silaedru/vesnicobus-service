@@ -7,17 +7,28 @@ import (
 
 var pool *redis.Pool
 
+func closeConnection(c redis.Conn) {
+	err := c.Close()
+
+	if err != nil {
+		log.Println("WARNING! error when closing redis connection:", err)
+	}
+}
+
 func storeItem(key string, value string) {
 	conn := pool.Get()
-	defer conn.Close()
+	defer closeConnection(conn)
 
 	_, err := conn.Do("SET", key, value)
-	processFatalError(err)
+
+	if err != nil {
+		log.Printf("WARNING! error when storing redis key \"%s\": %v\n", key, err)
+	}
 }
 
 func getItem(key string) string {
 	conn := pool.Get()
-	defer conn.Close()
+	defer closeConnection(conn)
 
 	val, err := redis.String(conn.Do("GET", key))
 
@@ -40,7 +51,7 @@ func createRedisConnection(server string, password string, db int, maxIdle int, 
 	}
 
 	conn := pool.Get()
-	defer conn.Close()
+	defer closeConnection(conn)
 
 	_, err := redis.String(conn.Do("PING"))
 

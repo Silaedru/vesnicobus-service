@@ -53,20 +53,28 @@ func positionToWpString(p *position, i int) string {
 	return fmt.Sprintf("&wp.%d=%.6f,%.6f", i, p.latitude, p.longitude)
 }
 
-func executeEstimate(routeString string) float32 {
-	resp, _ := httpCall("GET", routingEndpoint+routeString, nil)
+func executeEstimate(routeString string) (float32, error) {
+	resp, status, err := httpCall("GET", routingEndpoint+routeString, nil)
+
+	if status >= 400 || err != nil {
+		return 0, new(UnspecifiedEstimateError)
+	}
+
 	data, err := ioutil.ReadAll(resp.Body)
-	processFatalError(err)
+
+	if err != nil {
+		return 0, err
+	}
 
 	var result RouteAPIResponse
 	err = json.Unmarshal(data, &result)
 	processFatalError(err)
 
 	if len(result.ResourceSets) > 0 && len(result.ResourceSets[0].Resources) > 0 {
-		return float32(result.ResourceSets[0].Resources[0].Duration) / 60
+		return float32(result.ResourceSets[0].Resources[0].Duration) / 60, nil
 	}
 
-	return 0
+	return 0, nil
 }
 
 func estimateTimeToStop(busID string, targetStopID string) (Estimate, error) {
@@ -134,16 +142,21 @@ func estimateTimeToStop(busID string, targetStopID string) (Estimate, error) {
 	}
 
 	estimate := float32(0)
+	var estimateErr error
 	estimateMutex := &sync.Mutex{}
 	var wg sync.WaitGroup
 	wg.Add(len(routeStrings))
 
 	for _, str := range routeStrings {
 		go func(routeString string) {
-			e := executeEstimate(routeString)
-			if e > 0 {
+			e, err := executeEstimate(routeString)
+			if e > 0 && err == nil {
 				estimateMutex.Lock()
 				estimate += e
+				estimateMutex.Unlock()
+			} else if err != nil {
+				estimateMutex.Lock()
+				estimateErr = new(UnspecifiedEstimateError)
 				estimateMutex.Unlock()
 			}
 			wg.Done()
@@ -152,9 +165,12 @@ func estimateTimeToStop(busID string, targetStopID string) (Estimate, error) {
 
 	wg.Wait()
 
-	rtn.Estimate = estimate
-
-	return rtn, nil
+	if estimateErr == nil {
+		rtn.Estimate = estimate
+		return rtn, nil
+	} else {
+		return rtn, estimateErr
+	}
 }
 
 func setMicrosoftApiKey(key string) {

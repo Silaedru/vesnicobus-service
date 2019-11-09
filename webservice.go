@@ -28,15 +28,20 @@ func handleEstimate(w http.ResponseWriter, r *http.Request) {
 		switch err.(type) {
 		case *BusNotFoundError:
 			w.WriteHeader(http.StatusNotFound)
-		default:
+
+		case *StopNotInPathError:
 			w.WriteHeader(http.StatusBadRequest)
+
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	}
 
 	estimateString, err := json.Marshal(estimate)
 	processFatalError(err)
 
-	w.Write(estimateString)
+	_, _ = w.Write(estimateString)
 }
 
 // GET /buses
@@ -48,7 +53,7 @@ func handleBuses(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(bir)
 	processFatalError(err)
 
-	w.Write(resp)
+	_, _ = w.Write(resp)
 }
 
 func setupWebService(bindAddr string) {

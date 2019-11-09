@@ -37,10 +37,10 @@ func tripKey(id string) string {
 	return "trip_" + id
 }
 
-func loadTrip(id string) *GolemioTrip {
-	trip, rc := golemioHttpCall(golemioTripEndpoint+id+"?includeStops=true", 1, 0)
+func loadTrip(id string) (*GolemioTrip, error) {
+	trip, rc, err := golemioHttpCall(golemioTripEndpoint+id+"?includeStops=true", 1, 0)
 
-	if rc < 400 {
+	if rc < 400 && err == nil {
 		data, err := ioutil.ReadAll(trip.Body)
 		processFatalError(err)
 
@@ -48,13 +48,13 @@ func loadTrip(id string) *GolemioTrip {
 		err = json.Unmarshal(data, &tripData)
 		processFatalError(err)
 
-		return &tripData
+		return &tripData, nil
 	}
 
-	return nil
+	return nil, err
 }
 
-func getTrip(id string) *GolemioTrip {
+func getTrip(id string) (*GolemioTrip, error) {
 	tripLockMapMutex.Lock()
 	if tripLocks[id] == nil {
 		tripLocks[id] = new(sync.Mutex)
@@ -67,7 +67,11 @@ func getTrip(id string) *GolemioTrip {
 	var trip *GolemioTrip
 
 	if tripData == "" {
-		trip = loadTrip(id)
+		trip, err := loadTrip(id)
+
+		if err != nil {
+			return nil, err
+		}
 
 		if trip != nil {
 			tripData, err := json.Marshal(trip)
@@ -81,5 +85,5 @@ func getTrip(id string) *GolemioTrip {
 		processFatalError(err)
 	}
 
-	return trip
+	return trip, nil
 }

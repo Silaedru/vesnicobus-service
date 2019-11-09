@@ -43,7 +43,7 @@ func (r *bingRouteEstimator) executeEstimate(routeString string) (float32, error
 func (r *bingRouteEstimator) estimateTimeToStop(busID string, targetStopID string) (Estimate, error) {
 	rtn := Estimate{0, busID, targetStopID}
 
-	buses := getCurrentBusInfo()
+	buses, _ := getCurrentBusInfo()
 	var targetBus *BusInfo
 
 	for _, bus := range buses {

@@ -6,7 +6,9 @@ import (
 	"hash/crc32"
 	"io/ioutil"
 	"log"
+	"strconv"
 	"sync"
+	"time"
 )
 
 type (
@@ -43,8 +45,9 @@ type (
 	}
 
 	BusInfoResponse struct {
-		BusInfo   []BusInfo `json:"bus_info"`
-		Timestamp int64     `json:"timestamp"`
+		BusInfo           []BusInfo `json:"bus_info"`
+		ResponseTimestamp int64     `json:"response_timestamp"`
+		SyncTimestamp     int64     `json:"sync_timestamp"`
 	}
 )
 
@@ -52,6 +55,7 @@ const (
 	golemioCurrentPositionEndpoint = "https://api.golemio.cz/v1/vehiclepositions?"
 	busesPerPage                   = 1000
 	lastPositionKey                = "lastposition"
+	lastSyncTimestampKey           = "lastsynctimestamp"
 )
 
 var (
@@ -85,8 +89,9 @@ func fetchBusesLastPosition() ([]BusPosition, error) {
 	return buses, nil
 }
 
-func refreshBusesLastPosition() []BusPosition {
+func refreshBusesLastPosition() ([]BusPosition, int64) {
 	buses, err := fetchBusesLastPosition()
+	now := time.Now()
 
 	if err != nil {
 		log.Println("WARNING! Error when fetching last buses position:", err)
@@ -102,30 +107,35 @@ func refreshBusesLastPosition() []BusPosition {
 
 	tripData, err := json.Marshal(buses)
 	processFatalError(err)
-	storeItem(lastPositionKey, string(tripData))
 
-	return buses
+	storeItem(lastPositionKey, string(tripData))
+	storeItem(lastSyncTimestampKey, strconv.FormatInt(now.Unix(), 10))
+
+	return buses, now.Unix()
 }
 
-func getBusesLastPosition() []BusPosition {
+func getBusesLastPosition() ([]BusPosition, int64) {
 	refreshPositionLock.Lock()
 	lastPositionData := getItem(lastPositionKey)
+
 	var buses []BusPosition
+	var syncTimestamp int64
 
 	if lastPositionData == "" {
-		buses = refreshBusesLastPosition()
+		buses, syncTimestamp = refreshBusesLastPosition()
 		refreshPositionLock.Unlock()
 	} else {
 		refreshPositionLock.Unlock()
 		err := json.Unmarshal([]byte(lastPositionData), &buses)
+		syncTimestamp, _ = strconv.ParseInt(getItem(lastSyncTimestampKey), 10, 64)
 		processFatalError(err)
 	}
 
-	return buses
+	return buses, syncTimestamp
 }
 
-func getCurrentBusInfo() []BusInfo {
-	buses := getBusesLastPosition()
+func getCurrentBusInfo() ([]BusInfo, int64) {
+	buses, syncTime := getBusesLastPosition()
 	numBuses := len(buses)
 	info := make([]BusInfo, 0, numBuses)
 
@@ -202,5 +212,5 @@ func getCurrentBusInfo() []BusInfo {
 		})
 	}
 
-	return info
+	return info, syncTime
 }

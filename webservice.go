@@ -46,9 +46,13 @@ func handleEstimate(w http.ResponseWriter, r *http.Request) {
 
 // GET /buses
 func handleBuses(w http.ResponseWriter, r *http.Request) {
-	bi := getCurrentBusInfo()
+	bi, syncTime := getCurrentBusInfo()
 
-	bir := BusInfoResponse{bi, time.Now().Unix()}
+	bir := BusInfoResponse{
+		bi,
+		time.Now().Unix(),
+		syncTime,
+	}
 
 	resp, err := json.Marshal(bir)
 	processFatalError(err)

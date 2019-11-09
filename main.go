@@ -21,7 +21,7 @@ func main() {
 	golemioApiKey = s.Golemio.ApiKey
 
 	createRedisConnection(s.Redis.Server, s.Redis.Password, s.Redis.DB, s.Redis.MaxIdle, s.Redis.MaxActive)
-	setMicrosoftApiKey(s.Microsoft.ApiKey)
+	estimator = createBingRouteEstimator(s.Microsoft.ApiKey)
 
 	if s.Webservice.RefreshInterval > 0 {
 		log.Printf("refresh interval is %ds", s.Webservice.RefreshInterval)

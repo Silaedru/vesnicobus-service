@@ -22,7 +22,7 @@ func handleEstimate(w http.ResponseWriter, r *http.Request) {
 	busID := params["bus_id"]
 	stopID := params["stop_id"]
 
-	estimate, err := estimateTimeToStop(busID, stopID)
+	estimate, err := estimator.estimateTimeToStop(busID, stopID)
 
 	if err != nil {
 		switch err.(type) {

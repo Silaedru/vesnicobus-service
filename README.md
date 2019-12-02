@@ -15,7 +15,7 @@
  9) The server is ready
 
 ## API Documentation
-https://app.swaggerhub.com/apis-docs/Silaedru/vesnicobus-service/1.0.0
+https://app.swaggerhub.com/apis-docs/Silaedru/vesnicobus-service
 
 ## Related projects
 [Vesnicobus Client](https://github.com/Silaedru/vesnicobus-client)

@@ -1,7 +1,5 @@
 # Vesnicobus
 
- --- currently in development ---
-
  A webservice providing an API that allows you to get information about selected buses in Prague Integrated Transport network (with respect to data that is actually available) and to estimate arrival to stops on their route. To achieve this, this application uses the following public APIs:
 
   - Golemio (Prague Open Data platform): https://golemio.cz/
@@ -17,7 +15,7 @@
  9) The server is ready
 
 ## API Documentation
-Proper API documentation will be available soon.
+https://app.swaggerhub.com/apis/Silaedru/vesnicobus-service/1.0.0
 
 ## Related projects
 [Vesnicobus Client](https://github.com/Silaedru/vesnicobus-client)

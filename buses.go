@@ -16,7 +16,7 @@ type (
 		Properties struct {
 			Trip struct {
 				TripID string `json:"gtfs_trip_id"`
-				Line   string `json:"cis_short_name"`
+				Line   string `json:"gtfs_route_short_name"`
 			} `json:"trip"`
 
 			LastPosition struct {
